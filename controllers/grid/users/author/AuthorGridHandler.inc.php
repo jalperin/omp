@@ -21,7 +21,7 @@ import('controllers.grid.users.author.AuthorGridCellProvider');
 import('controllers.grid.users.author.AuthorGridRow');
 
 // Link action & modal classes
-import('lib.pkp.classes.linkAction.request.AjaxModal');
+import('lib.pkp.classes.linkAction.request.WizardModal');
 
 class AuthorGridHandler extends GridHandler {
 	/** @var Monograph */
@@ -34,8 +34,9 @@ class AuthorGridHandler extends GridHandler {
 		parent::GridHandler();
 		$this->addRoleAssignment(
 				array(ROLE_ID_AUTHOR, ROLE_ID_SERIES_EDITOR, ROLE_ID_PRESS_MANAGER),
-				array('fetchGrid', 'addAuthor', 'editAuthor',
-				'updateAuthor', 'deleteAuthor'));
+				array('fetchGrid', 'fetchRow', 'addAuthor', 'searchAuthor',
+                     'fetchSearchForm', 'createAuthorAssociation', 'editAuthor',
+                     'updateAuthor', 'deleteAuthor'));
 	}
 
 
@@ -102,12 +103,11 @@ class AuthorGridHandler extends GridHandler {
 
 		// Grid actions
 		$router =& $request->getRouter();
-		$actionArgs = array('monographId' => $monographId);
 		$actionArgs = $this->getRequestArgs();
 		$this->addAction(
 			new LinkAction(
 				'addAuthor',
-				new AjaxModal(
+				new WizardModal(
 					$router->url($request, null, null, 'addAuthor', null, $actionArgs),
 					__('grid.action.addAuthor'),
 					'addUser'
@@ -157,7 +157,6 @@ class AuthorGridHandler extends GridHandler {
 		);
 	}
 
-
 	//
 	// Overridden methods from GridHandler
 	//
@@ -186,19 +185,82 @@ class AuthorGridHandler extends GridHandler {
 	//
 	// Public Author Grid Actions
 	//
+    /**
+	 * Display the search form (basically a search box and a button).
+	 * @param $args array
+	 * @param $request PKPRequest
+	 */
+    function fetchSearchForm($args, &$request) {
+		// Form handling
+		import('controllers.grid.user.uniqueAuthor.form.SearchAuthorForm');
+		$searchAuthorForm = new SearchAuthorForm();
+		$searchAuthorForm->initData();
+
+		$json = new JSONMessage(true, $searchAuthorForm->fetch($request));
+		return $json->getString();
+    }
+
+    /**
+	 * This holds the logic for how authors are joined together into a "disambiguated" author.
+     * It uses the uniqueAuthorId of the first grid and all of ids from the potential authors grid.
+     * It falls on the uniqueAuthorDAO to make the connections.
+	 * @param $args array
+	 * @param $request PKPRequest
+	 */
+    function createAuthorAssociation($args, &$request) {
+        $uniqueAuthorId = (int) $request->getUserVar('uniqueAuthorId');
+        $potentialAuthorIds = $request->getUserVar('potentialAuthorId');
+
+        if ( $potentialAuthorIds && is_array($potentialAuthorIds) ) {
+            $uniqueAuthorDao =& DAORegistry::getDAO('UniqueAuthorDAO');
+            foreach ( $potentialAuthorIds as $id) {
+                $idArray = explode('-', $id);
+                $identifierId = array_pop($idArray);
+                $identifierType = implode('-', $idArray);
+                $content = $request->getUserVar($id);
+
+                $resultingUniqueAuthor =& $uniqueAuthorDao->addUniqueAuthorIdentifier(
+                            $uniqueAuthorId, $identifierType, $identifierId, $content
+                            );
+                // We will always be returned a unique author which may, or may not, be the same as the one
+                // the user selected (merges can occur). So make sure we call with the new id the next time through.
+                $uniqueAuthorId = $resultingUniqueAuthor->getId();
+            }
+        }
+
+        // FIXME: Perhaps this should create a new kind of JS event.
+        // A workaround to that is to return the ID and let the calling JS use it to create a new event there.
+		$json = new JSONMessage(true, (int) $uniqueAuthorId);
+		return $json->getString();
+    }
+
+
+    /**
+	 * Display the tab that holds the search form and the grids the user will work with.
+	 * @param $args array
+	 * @param $request PKPRequest
+	 */
+    function searchAuthor($args, &$request) {
+        $monograph =& $this->getMonograph();
+        $templateMgr =& PKPTemplateManager::getManager();
+        $templateMgr->assign('monographId', $monograph->getId());
+        return $templateMgr->fetchJson('controllers/grid/users/uniqueAuthor/searchAuthor.tpl');
+    }
+
 	/**
-	 * An action to manually add a new author
+	 * An action to add a new author (opens the wizard).
 	 * @param $args array
 	 * @param $request PKPRequest
 	 */
 	function addAuthor($args, &$request) {
-		// Calling editAuthor() with an empty row id will add
-		// a new author.
-		return $this->editAuthor($args, $request);
+		$monograph =& $this->getMonograph();
+		$templateMgr =& TemplateManager::getManager();
+		$templateMgr->assign('monographId', $monograph->getId());
+		return $templateMgr->fetchJson('controllers/grid/users/author/addAuthor.tpl');
 	}
 
 	/**
-	 * Edit a author
+	 * Edit an existing author
 	 * @param $args array
 	 * @param $request PKPRequest
 	 * @return string Serialized JSON object
@@ -206,6 +268,8 @@ class AuthorGridHandler extends GridHandler {
 	function editAuthor($args, &$request) {
 		// Identify the author to be updated
 		$authorId = $request->getUserVar('authorId');
+        $uniqueAuthorId = $request->getUserVar('uniqueAuthorId');
+
 		$monograph =& $this->getMonograph();
 
 		$authorDao =& DAORegistry::getDAO('AuthorDAO');
@@ -214,7 +278,7 @@ class AuthorGridHandler extends GridHandler {
 		// Form handling
 		import('controllers.grid.users.author.form.AuthorForm');
 		$authorForm = new AuthorForm($monograph, $author);
-		$authorForm->initData();
+		$authorForm->initData($uniqueAuthorId);
 
 		$json = new JSONMessage(true, $authorForm->fetch($request));
 		return $json->getString();
@@ -229,6 +293,7 @@ class AuthorGridHandler extends GridHandler {
 	function updateAuthor($args, &$request) {
 		// Identify the author to be updated
 		$authorId = $request->getUserVar('authorId');
+        $uniqueAuthorId = $request->getUserVar('uniqueAuthorId');
 		$monograph =& $this->getMonograph();
 
 		$authorDao =& DAORegistry::getDAO('AuthorDAO');
@@ -240,18 +305,11 @@ class AuthorGridHandler extends GridHandler {
 		$authorForm->readInputData();
 		if ($authorForm->validate()) {
 			$authorId = $authorForm->execute();
+            $author =& $authorDao->getAuthor($authorId);
 
-			if(!isset($author)) {
-				// This is a new contributor
-				$author =& $authorDao->getAuthor($authorId, $monograph->getId());
-			}
-
-			// Prepare the grid row data
-			$row =& $this->getRowInstance();
-			$row->setGridId($this->getId());
-			$row->setId($authorId);
-			$row->setData($author);
-			$row->initialize($request);
+            // FIXME: is this the right place for this? Should get the author plugin to do this?
+            $uniqueAuthorDao =& DAORegistry::getDAO('UniqueAuthorDAO');
+            $uniqueAuthorDao->addUniqueAuthorIdentifier($uniqueAuthorId, 'PkpAuthor', $authorId, $author->getFullName());
 
 			// Render the row into a JSON response
 			if($author->getPrimaryContact()) {

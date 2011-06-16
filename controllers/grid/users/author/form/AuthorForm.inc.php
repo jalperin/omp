@@ -78,13 +78,14 @@ class AuthorForm extends Form {
 	//
 	/**
 	* Initialize form data from the associated author.
-	* @param $author Author
+	* @param $uniqueAuthor Unique Author
 	*/
-	function initData() {
+	function initData($uniqueAuthorId = null) {
 		$author =& $this->getAuthor();
 
+        $this->setData('uniqueAuthorId', $uniqueAuthorId);
 		if ( $author ) {
-			$this->_data = array(
+			$this->_data = array_merge($this->_data, array(
 				'authorId' => $author->getId(),
 				'firstName' => $author->getFirstName(),
 				'middleName' => $author->getMiddleName(),
@@ -96,8 +97,34 @@ class AuthorForm extends Form {
 				'userGroupId' => $author->getUserGroupId(),
 				'biography' => $author->getBiography(Locale::getLocale()),
 				'primaryContact' => $author->getPrimaryContact()
-			);
-		}
+			));
+		} elseif ( $uniqueAuthorId ) {
+            $uniqueAuthorDao =& DAORegistry::getDAO('UniqueAuthorDAO');
+
+            // some special handling for internal data types
+            // Try PkpAuthor and PkpUser
+            if ( $uniqueAuthor =& $uniqueAuthorDao->getUniqueAuthorByIdAndType($uniqueAuthorId, 'PkpAuthor') ) {
+                $authorDao =& DAORegistry::getDAO('AuthorDAO');
+                $author =& $authorDao->getAuthor($uniqueAuthor->getIdentifierId());
+                // Unset the primary contact and the id, since they belong to another monograph.
+                $author->setId(null);
+                $author->setPrimaryContact(null);
+            } elseif ( $uniqueAuthor =& $uniqueAuthorDao->getUniqueAuthorByIdAndType($uniqueAuthorId, 'PkpUser') ) {
+                $userDao =& DAORegistry::getDAO('UserDAO');
+                $user =& $userDao->getUser($uniqueAuthor->getIdentifierId());
+                $author = new Author();
+                $author->setFirstName($user->getFirstName());
+                $author->setMiddleName($user->getMiddleName());
+                $author->setLastName($user->getLastName());
+                $author->setAffiliation($user->getAffiliation(null), null);
+                $author->setCountry($user->getCountry());
+                $author->setEmail($user->getEmail());
+                $author->setUrl($user->getUrl());
+                $author->setBiography($user->getBiography(null), null);
+            } else {
+                // We could try to parse here.
+            }
+        }
 	}
 
 	/**
@@ -105,9 +132,14 @@ class AuthorForm extends Form {
 	 * @see Form::fetch()
 	 */
 	function fetch($request) {
-		$author =& $this->getAuthor();
-
 		$templateMgr =& TemplateManager::getManager();
+
+		$author =& $this->getAuthor();
+        if ( $author ) {
+            // We are editing, display the form with buttons (no wizard)
+            $templateMgr->assign('addButtons', true);
+        }
+
 		$countryDao =& DAORegistry::getDAO('CountryDAO');
 		$countries =& $countryDao->getCountries();
 		$templateMgr->assign_by_ref('countries', $countries);
@@ -153,7 +185,6 @@ class AuthorForm extends Form {
 
 	/**
 	 * Save author
-	 * @see Form::execute()
 	 * @see Form::execute()
 	 */
 	function execute() {

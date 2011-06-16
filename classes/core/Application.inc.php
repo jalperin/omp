@@ -155,7 +155,8 @@ class Application extends PKPApplication {
 			'metadata',
 			'blocks',
 			'generic',
-			'importexport'
+			'importexport',
+			'authorLookup'
 		);
 	}
 }

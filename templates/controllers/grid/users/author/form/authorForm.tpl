@@ -9,7 +9,7 @@
  *}
 
 <script type="text/javascript">
-	// Attach the Information Center handler.
+	// Attach the Ajax Form handler.
 	$(function() {ldelim}
 		$('#editAuthor').pkpHandler(
 			'$.pkp.controllers.form.AjaxFormHandler'
@@ -17,7 +17,7 @@
 	{rdelim});
 </script>
 
-<form class="pkp_form" id="editAuthor" method="post" action="{url op="updateAuthor" authorId=$authorId}">
+<form class="pkp_form" id="editAuthor" method="post" action="{url op="updateAuthor"}">
 	{include file="common/formErrors.tpl"}
 
 	{fbvFormArea id="profile"}
@@ -50,13 +50,14 @@
 	{if $monographId}
 		<input type="hidden" name="monographId" value="{$monographId|escape}" />
 	{/if}
-	{if $gridId}
-		<input type="hidden" name="gridId" value="{$gridId|escape}" />
-	{/if}
-	{if $rowId}
-		<input type="hidden" name="rowId" value="{$rowId|escape}" />
-	{/if}
-
-	{include file="form/formButtons.tpl"}
+    {if $authorId}
+        <input type="hidden" name="authorId" value="{$authorId|escape}" />
+    {/if}
+    {if $uniqueAuthorId}
+        <input type="hidden" name="uniqueAuthorId" value="{$uniqueAuthorId|escape}" />
+    {/if}
+    {if $addButtons}
+        {include file="form/formButtons.tpl"}
+    {/if}
 </form>
 

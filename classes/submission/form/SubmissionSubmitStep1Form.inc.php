@@ -158,21 +158,7 @@ class SubmissionSubmitStep1Form extends SubmissionSubmitForm {
 			$userGroupDao =& DAORegistry::getDAO('UserGroupDAO');
 			$defaultAuthorGroup =& $userGroupDao->getDefaultByRoleId($this->press->getId(), ROLE_ID_AUTHOR);
 
-			// Set user to initial author
-			$authorDao =& DAORegistry::getDAO('AuthorDAO');
-			$user =& Request::getUser();
-			$author = new Author();
-			$author->setFirstName($user->getFirstName());
-			$author->setMiddleName($user->getMiddleName());
-			$author->setLastName($user->getLastName());
-			$author->setAffiliation($user->getAffiliation(null), null);
-			$author->setCountry($user->getCountry());
-			$author->setEmail($user->getEmail());
-			$author->setUrl($user->getUrl());
-			$author->setUserGroupId($defaultAuthorGroup->getId());
-			$author->setBiography($user->getBiography(null), null);
-			$author->setPrimaryContact(1);
-
+            // Insert the monograph.
 			$monographDao->insertMonograph($this->monograph);
 			$this->monographId = $this->monograph->getId();
 			$author->setSubmissionId($this->monographId);

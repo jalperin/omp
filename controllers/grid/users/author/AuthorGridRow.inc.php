@@ -43,9 +43,16 @@ class AuthorGridRow extends GridRow {
 		if (!empty($rowId) && is_numeric($rowId)) {
 			// Only add row actions if this is an existing row
 			$router =& $request->getRouter();
+
+            // get the author's uniqueAuthorId
+            $uniqueAuthorDao =& DAORegistry::getDAO('UniqueAuthorDAO');
+            $uniqueAuthor =& $uniqueAuthorDao->getUniqueAuthorByType('PkpAuthor', $rowId);
+            $uniqueAuthorId = $uniqueAuthor->getId();
+
 			$actionArgs = array(
 				'monographId' => $monographId,
-				'authorId' => $rowId
+				'authorId' => $rowId,
+                'uniqueAuthorId' => $uniqueAuthorId
 			);
 
 	    	// Add row-level actions
