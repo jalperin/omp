@@ -33,7 +33,7 @@
 		{/fbvFormSection}
 	{/fbvFormArea}
 	<div id="userGroupStageContainer" class="full left">
-		{url|assign:stagesUrl Url router=$smarty.const.ROUTE_COMPONENT component="listbuilder.users.UserGroupStageListbuilderHandler" op="fetch" userGroupId=$userGroupId title="grid.roles.stageAssignment" escape=false}
+		{url|assign:stagesUrl router=$smarty.const.ROUTE_COMPONENT component="listbuilder.users.UserGroupStageListbuilderHandler" op="fetch" userGroupId=$userGroupId title="grid.roles.stageAssignment" escape=false}
 		{load_url_in_div id="userGroupStageContainer" url=$stagesUrl}
 	</div>
 	{fbvFormButtons submitText="common.save"}
